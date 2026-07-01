@@ -86,7 +86,7 @@ cd podbx
 ```
 
 > [!NOTE]
-> ``Pobox`` is a default container option for flucidOS, and hence it is a pre-intalled package in flucidOS.
+> ``Pobox`` is the default container option for flucidOS, and hence it is a pre-intalled package in flucidOS.
 
 ## What the installer does:
 
