@@ -66,10 +66,15 @@ delete_workspace() {
     echo "Workspace deleted. (The base OS container remains untouched)."
 }
 
+configure_permissions() {
+    "$(dirname "$0")/podbx-configure-flatpak"
+}
+
 case "$1" in
     create) create_workspace "$2" "$3" ;;
     enter)  enter_workspace "$2" ;;
     delete) delete_workspace "$2" ;;
+    configure) configure_permissions ;;
     *)
         echo "Podbx Workspace CLI"
         echo "Usage: $0 {create|enter|delete} [args]"

@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# podbx-configure-flatpak — grant installed Flatpak IDEs the permissions
+# needed for Podbx's container terminal + filesystem integration.
+#
+# Ships with FlucidOS. Runs automatically during install.sh, and is
+# safe to re-run any time (idempotent) — e.g. after installing a new IDE.
+
+set -e
+
+PODBX_PROJECTS_DIR="${PODBX_PROJECTS_DIR:-$HOME/Podbx_Projects}"
+
+# Keep this in sync with podbx/ui/dialogs.py :: _IDE_KEYWORDS
+IDE_KEYWORDS=(code vscodium pycharm idea builder zed sublime eclipse kate gedit xed)
+
+configure_flatpak_permissions() {
+    if ! command -v flatpak &>/dev/null; then
+        echo "Flatpak not found — skipping IDE sandbox permission setup."
+        return 0
+    fi
+
+    mkdir -p "$PODBX_PROJECTS_DIR"
+
+    local installed_apps
+    installed_apps=$(flatpak list --app --columns=application 2>/dev/null || true)
+
+    if [ -z "$installed_apps" ]; then
+        echo "No Flatpak apps installed yet — nothing to configure."
+        return 0
+    fi
+
+    local configured=0
+    while IFS= read -r app_id; do
+        [ -z "$app_id" ] && continue
+        local lower_id matched=false
+        lower_id=$(echo "$app_id" | tr '[:upper:]' '[:lower:]')
+
+        for kw in "${IDE_KEYWORDS[@]}"; do
+            [[ "$lower_id" == *"$kw"* ]] && { matched=true; break; }
+        done
+
+        if [ "$matched" = true ]; then
+            echo "  Granting Podbx permissions to $app_id..."
+            flatpak override --user --talk-name=org.freedesktop.Flatpak "$app_id"
+            flatpak override --user --filesystem="$PODBX_PROJECTS_DIR:rw" "$app_id"
+            configured=$((configured + 1))
+        fi
+    done <<< "$installed_apps"
+
+    if [ "$configured" -eq 0 ]; then
+        echo "No matching IDE Flatpaks found — nothing to configure."
+    else
+        echo "Configured $configured Flatpak IDE(s) for Podbx container integration."
+    fi
+}
+
+configure_flatpak_permissions
