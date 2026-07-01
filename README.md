@@ -148,7 +148,7 @@ The script will prompt you before deleting your workspace data in ``~/Podbx_Proj
 - [ ] Set up CI/CD pipeline
 
 ### IDEs Implemented:
-- [ ] VS-Code/VS-Codium
+- [X] VS-Code/VS-Codium
 
 ### IDEs to integrate:
 - [ ] Eclipse IDE
