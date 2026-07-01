@@ -1,0 +1,363 @@
+#!/usr/bin/env python3
+import sys
+import os
+import json
+import subprocess
+import shutil
+
+import gi
+gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
+from gi.repository import Gtk, Adw, Gio, GLib
+
+# Fixed: Aligning exactly with your system's Podbx spelling
+PODBX_DIR = os.path.expanduser("~/Podbx_Projects")
+CLI_PATH = os.path.expanduser("~/.local/share/podbx/bin/podbx-cli")
+
+class PodbxWindow(Adw.ApplicationWindow):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.set_title("Podbx")
+        self.set_default_size(700, 550)
+
+        # Use Adw.ToolbarView for standard, proper GTK4 styling
+        self.toolbar_view = Adw.ToolbarView()
+        self.set_content(self.toolbar_view)
+
+        # Header Bar
+        self.header = Adw.HeaderBar()
+        self.toolbar_view.add_top_bar(self.header)
+
+        # Menu Button (Burger)
+        self.menu_button = Gtk.MenuButton()
+        self.menu_button.set_icon_name("open-menu-symbolic")
+        self.header.pack_start(self.menu_button)
+
+        # Scrollable View for Workspaces
+        self.scroll = Gtk.ScrolledWindow()
+        self.scroll.set_vexpand(True)
+        self.toolbar_view.set_content(self.scroll)
+
+        # Use Adw.Clamp to center the UI and prevent it from stretching infinitely
+        self.clamp = Adw.Clamp()
+        self.clamp.set_maximum_size(600)
+        self.scroll.set_child(self.clamp)
+
+        # Preferences Page
+        self.page = Adw.PreferencesPage()
+        self.clamp.set_child(self.page)
+
+        # Preferences Group for the list
+        self.list_group = Adw.PreferencesGroup(title="Your Workspaces")
+        self.page.add(self.list_group)
+
+        # Footer Box wrapped in a PreferencesGroup for spacing
+        self.footer_group = Adw.PreferencesGroup()
+        self.footer_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        self.footer_box.set_margin_top(20)
+        self.footer_box.set_margin_bottom(20)
+        self.footer_group.add(self.footer_box)
+        self.page.add(self.footer_group)
+
+        # Add "New Workspace" Button
+        self.add_btn = Gtk.Button(label="New Workspace")
+        self.add_btn.add_css_class("pill")
+        self.add_btn.add_css_class("suggested-action")
+        self.add_btn.set_halign(Gtk.Align.CENTER)
+        self.add_btn.set_size_request(200, -1)
+        self.add_btn.connect("clicked", self.on_add_clicked)
+        self.footer_box.append(self.add_btn)
+
+        self.current_rows = []
+        self.load_workspaces()
+
+    def load_workspaces(self):
+        for row in self.current_rows:
+            self.list_group.remove(row)
+        self.current_rows.clear()
+
+        if not os.path.exists(PODBX_DIR):
+            os.makedirs(PODBX_DIR, exist_ok=True)
+
+        workspaces_found = False
+        for folder in sorted(os.listdir(PODBX_DIR)):
+            full_path = os.path.join(PODBX_DIR, folder)
+            
+            # Support the new path, but fallback to the old ones for existing workspaces
+            new_json_path = os.path.join(full_path, ".podbx", ".podbx_workspace.json")
+            old_json_path = os.path.join(full_path, ".podbx_workspace.json")
+            old_json_path_alt = os.path.join(full_path, ".podbox_workspace.json")
+            
+            json_path_to_use = None
+            if os.path.exists(new_json_path):
+                json_path_to_use = new_json_path
+            elif os.path.exists(old_json_path):
+                json_path_to_use = old_json_path
+            elif os.path.exists(old_json_path_alt):
+                json_path_to_use = old_json_path_alt
+            
+            if os.path.isdir(full_path) and json_path_to_use:
+                workspaces_found = True
+                with open(json_path_to_use, 'r') as f:
+                    try:
+                        data = json.load(f)
+                        name = data.get("name", folder)
+                    except Exception:
+                        name = folder
+                self.add_workspace_row(name, full_path)
+            
+        if not workspaces_found:
+            empty_row = Adw.ActionRow(title="No workspaces found", subtitle="Click 'New Workspace' to get started.")
+            self.list_group.add(empty_row)
+            self.current_rows.append(empty_row)
+
+    def add_workspace_row(self, name, path):
+        row = Adw.ActionRow(title=GLib.markup_escape_text(name), subtitle=path)
+        row.set_title_lines(1)
+        
+        open_with_btn = Gtk.Button(label="Open With")
+        open_with_btn.set_valign(Gtk.Align.CENTER)
+        open_with_btn.add_css_class("pill")
+        open_with_btn.connect("clicked", lambda btn: self.open_with_chooser(name, path))
+        row.add_suffix(open_with_btn)
+
+        enter_btn = Gtk.Button(label="Open Terminal")
+        enter_btn.set_valign(Gtk.Align.CENTER)
+        enter_btn.add_css_class("flat")
+        enter_btn.connect("clicked", lambda btn: self.enter_workspace(path))
+        row.add_suffix(enter_btn)
+
+        del_btn = Gtk.Button(icon_name="user-trash-symbolic")
+        del_btn.set_valign(Gtk.Align.CENTER)
+        del_btn.add_css_class("flat")
+        del_btn.add_css_class("destructive-action")
+        del_btn.connect("clicked", lambda btn: self.confirm_delete(name, path))
+        row.add_suffix(del_btn)
+
+        self.list_group.add(row)
+        self.current_rows.append(row)
+
+    def open_with_chooser(self, name, path):
+        dialog = IDEAppChooserDialog(self, name, path)
+        dialog.present()
+
+    def enter_workspace(self, path):
+        terminals = ["ptyxis", "gnome-console", "gnome-terminal", "konsole", "xterm"]
+        chosen_term = None
+        for term in terminals:
+            if shutil.which(term):
+                chosen_term = term
+                break
+                
+        if chosen_term:
+            subprocess.Popen([chosen_term, "--", CLI_PATH, "enter", path])
+        else:
+            print("Error: No supported terminal emulator found.")
+
+    def confirm_delete(self, name, path):
+        subprocess.run([CLI_PATH, "delete", path])
+        self.load_workspaces()
+
+    def on_add_clicked(self, btn):
+        dialog = CreateWorkspaceDialog(self)
+        dialog.present()
+
+
+class IDEAppChooserDialog(Adw.Window):
+    def __init__(self, parent, workspace_name, workspace_path):
+        super().__init__(transient_for=parent, modal=True)
+        self.workspace_path = workspace_path
+        self.set_title("Open With...")
+        self.set_default_size(450, 600)
+
+        # Wrap everything in Adw.ToolbarView here as well
+        toolbar_view = Adw.ToolbarView()
+        self.set_content(toolbar_view)
+
+        header = Adw.HeaderBar()
+        toolbar_view.add_top_bar(header)
+        
+        self.search_entry = Gtk.SearchEntry()
+        self.search_entry.set_hexpand(True)
+        self.search_entry.set_placeholder_text("Search Applications...")
+        self.search_entry.connect("search-changed", self.on_search_changed)
+        header.set_title_widget(self.search_entry)
+
+        scroll = Gtk.ScrolledWindow()
+        scroll.set_vexpand(True)
+        toolbar_view.set_content(scroll)
+
+        page = Adw.PreferencesPage()
+        scroll.set_child(page)
+
+        self.recommended_group = Adw.PreferencesGroup(title="Recommended IDEs & Editors")
+        page.add(self.recommended_group)
+
+        self.other_group = Adw.PreferencesGroup(title="Other Applications")
+        page.add(self.other_group)
+
+        self.app_rows = []
+        self.load_apps()
+
+    def load_apps(self):
+        ide_keywords = ["code", "vscodium", "pycharm", "idea", "builder", "zed", "sublime", "eclipse", "kate", "gedit", "xed"]
+        recommended_for_text = Gio.AppInfo.get_recommended_for_type("text/plain")
+        recommended_ids = [app.get_id() for app in recommended_for_text if app.get_id()]
+
+        all_apps = Gio.AppInfo.get_all()
+        all_apps.sort(key=lambda a: (a.get_name() or "").lower())
+
+        for app in all_apps:
+            if not app.should_show():
+                continue
+
+            name = app.get_name()
+            app_id = app.get_id()
+            exec_cmd = app.get_executable() or ""
+
+            is_recommended = app_id in recommended_ids
+            if not is_recommended:
+                for keyword in ide_keywords:
+                    if keyword in exec_cmd.lower() or keyword in name.lower():
+                        is_recommended = True
+                        break
+
+            row = Adw.ActionRow(title=GLib.markup_escape_text(name))
+            
+            desc = app.get_description()
+            if desc:
+                row.set_subtitle(GLib.markup_escape_text(desc))
+                row.set_subtitle_lines(1)
+
+            icon = app.get_icon()
+            if icon:
+                valid_icon = True
+                if isinstance(icon, Gio.FileIcon):
+                    gfile = icon.get_file()
+                    if gfile and not gfile.query_exists():
+                        valid_icon = False
+                
+                if valid_icon:
+                    img = Gtk.Image.new_from_gicon(icon)
+                    img.set_pixel_size(32)
+                    row.add_prefix(img)
+
+            row.set_activatable(True)
+            row.connect("activated", lambda r, a=app: self.on_app_activated(a))
+            self.app_rows.append((row, is_recommended, name.lower(), app))
+
+            if is_recommended:
+                self.recommended_group.add(row)
+            else:
+                self.other_group.add(row)
+
+    def on_search_changed(self, entry):
+        query = entry.get_text().lower()
+        for row, is_rec, search_name, app in self.app_rows:
+            row.set_visible(query in search_name)
+
+    def on_app_activated(self, app_info):
+        executable = app_info.get_executable() or ""
+        name = app_info.get_name().lower()
+        
+        if "code" in executable or "code" in name:
+            dev_container_dir = os.path.join(self.workspace_path, ".devcontainer")
+            if not os.path.exists(dev_container_dir):
+                os.makedirs(dev_container_dir)
+            
+            config = {
+                "name": "Podbx Workspace",
+                "customizations": {
+                    "vscode": {
+                        "settings": {
+                            "terminal.integrated.defaultProfile.linux": "bash"
+                        },
+                        "extensions": ["ms-vscode-remote.remote-containers"]
+                    }
+                },
+                "remoteUser": "siddhz",
+                "postCreateCommand": "bash"
+            }
+            with open(os.path.join(dev_container_dir, "devcontainer.json"), "w") as f:
+                json.dump(config, f, indent=4)
+            
+            subprocess.Popen([executable, self.workspace_path])
+        else:
+            try:
+                file_to_open = Gio.File.new_for_path(self.workspace_path)
+                app_info.launch([file_to_open], None)
+            except Exception as e:
+                print(f"Failed to launch app: {e}")
+        self.close()
+
+
+class CreateWorkspaceDialog(Adw.Window):
+    def __init__(self, parent):
+        super().__init__(transient_for=parent, modal=True)
+        self.parent_win = parent
+        self.set_title("New Workspace")
+        self.set_default_size(350, 200)
+        self.set_resizable(False)
+        
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        box.set_margin_top(24)
+        box.set_margin_bottom(24)
+        box.set_margin_start(24)
+        box.set_margin_end(24)
+        self.set_content(box)
+
+        label = Gtk.Label(label="Enter a name for your new project workspace:")
+        label.set_halign(Gtk.Align.START)
+        box.append(label)
+
+        self.name_entry = Gtk.Entry(placeholder_text="e.g. my_awesome_app")
+        self.name_entry.connect("activate", self.on_create)
+        box.append(self.name_entry)
+
+        create_btn = Gtk.Button(label="Create")
+        create_btn.add_css_class("suggested-action")
+        create_btn.set_halign(Gtk.Align.END)
+        create_btn.connect("clicked", self.on_create)
+        box.append(create_btn)
+
+    def on_create(self, btn):
+        name = self.name_entry.get_text().strip()
+        if not name:
+            return
+            
+        path = os.path.join(PODBX_DIR, name)
+        self.name_entry.set_sensitive(False)
+        subprocess.run([CLI_PATH, "create", name, path])
+        self.parent_win.load_workspaces()
+        self.close()
+
+
+class PodbxApp(Adw.Application):
+    def __init__(self):
+        # Fixed Application ID spelling
+        super().__init__(application_id='com.flucidos.Podbx')
+        self.connect('activate', self.on_activate)
+
+    def on_activate(self, app):
+        win = PodbxWindow(application=app)
+        
+        menu_model = Gio.Menu()
+        menu_model.append("About Podbx", "app.about")
+        win.menu_button.set_menu_model(menu_model)
+        
+        def show_about(a, b): 
+            about = Adw.AboutWindow(transient_for=win)
+            about.set_application_name("Podbx")
+            about.set_version("1.0")
+            about.present()
+        
+        act_about = Gio.SimpleAction.new("about", None)
+        act_about.connect("activate", show_about)
+        app.add_action(act_about)
+        
+        win.present()
+
+
+if __name__ == '__main__':
+    app = PodbxApp()
+    app.run(sys.argv)

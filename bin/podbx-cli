@@ -1,0 +1,81 @@
+#!/bin/bash
+#
+# Podbx Workspace Manager CLI
+# Backend for the Podbx GUI. Wraps Podman/Distrobox safely.
+
+set -e
+
+BASE_IMAGE="podbx-base:latest"
+BASE_CONTAINER="podbx-os"
+
+ensure_base_os() {
+    if ! distrobox list | grep -qw "$BASE_CONTAINER"; then
+        echo "Initializing base OS container ($BASE_CONTAINER) for the first time..."
+        distrobox create --name "$BASE_CONTAINER" --image "$BASE_IMAGE" --yes
+    fi
+}
+
+create_workspace() {
+    local WORKSPACE_NAME=$1
+    local WORKSPACE_DIR=$2
+
+    if [ -z "$WORKSPACE_NAME" ] || [ -z "$WORKSPACE_DIR" ]; then
+        echo "Error: Must provide a name and a directory path."
+        echo "Usage: $0 create <name> <directory_path>"
+        exit 1
+    fi
+
+    echo "Creating workspace directory at $WORKSPACE_DIR..."
+    mkdir -p "$WORKSPACE_DIR/.podbx"
+
+    # We do NOT call ensure_base_os here anymore. 
+    # This makes workspace creation immediate.
+    # The GUI already handles container setup on first launch.
+
+    echo '{"status": "initialized", "name": "'"$WORKSPACE_NAME"'"}' > "$WORKSPACE_DIR/.podbx/.podbx_workspace.json"
+
+    echo "Workspace '$WORKSPACE_NAME' is ready!"
+    echo "To enter, run: $0 enter $WORKSPACE_DIR"
+}
+
+enter_workspace() {
+    local WORKSPACE_DIR=$1
+    if [ -z "$WORKSPACE_DIR" ]; then
+        echo "Error: Must provide workspace directory path."
+        echo "Usage: $0 enter <directory_path>"
+        exit 1
+    fi
+
+    # It is safe to keep ensure_base_os here just in case the user 
+    # deleted the container manually but tries to enter via terminal.
+    ensure_base_os
+
+    echo "Entering Podbx OS at $WORKSPACE_DIR..."
+    distrobox enter "$BASE_CONTAINER" -- bash -c "cd '$WORKSPACE_DIR' && exec \$SHELL"
+}
+
+delete_workspace() {
+    local WORKSPACE_DIR=$1
+    if [ -z "$WORKSPACE_DIR" ]; then
+        echo "Error: Must provide workspace directory path."
+        exit 1
+    fi
+
+    echo "Removing project directory: $WORKSPACE_DIR"
+    rm -rf "$WORKSPACE_DIR"
+    echo "Workspace deleted. (The base OS container remains untouched)."
+}
+
+case "$1" in
+    create) create_workspace "$2" "$3" ;;
+    enter)  enter_workspace "$2" ;;
+    delete) delete_workspace "$2" ;;
+    *)
+        echo "Podbx Workspace CLI"
+        echo "Usage: $0 {create|enter|delete} [args]"
+        echo "  create <name> <path/to/folder>  Create a new workspace directory"
+        echo "  enter  <path/to/folder>         Open a shell in the workspace"
+        echo "  delete <path/to/folder>         Delete the workspace directory"
+        exit 1
+        ;;
+esac
