@@ -6,7 +6,7 @@
 
 Podbx is a GTK4/libadwaita graphical application and CLI backend designed to manage isolated development environments on immutable Linux operating systems. 
 
-Built on top of [Distrobox](https://github.com/89luca89/distrobox) and [Podman](https://podman.io/), Podbx provisions a shared, enriched base operating system container and maps individual project directories ("workspaces") into it. It seamlessly bridges the gap between host tools and containerized environments, ensuring your integrated IDE terminals and workflows feel completely native.
+Built on top of [Distrobox](https://distrobox.it/) and [Podman](https://podman.io/), Podbx provisions a shared, enriched base operating system container and maps individual project directories ("workspaces") into it. It seamlessly bridges the gap between host tools and containerized environments, ensuring your integrated IDE terminals and workflows feel completely native.
 
 ---
 
