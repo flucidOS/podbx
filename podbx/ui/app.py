@@ -71,7 +71,7 @@ class PodbxApp(Adw.Application):
             "issue_url": "https://github.com/flucidos/podbx/issues",
             "support_url": "https://github.com/flucidos/podbx/discussions",
             "copyright": "© 2026 FlucidOS Project",
-            "license_type": Gtk.License.GPL_3_0,
+            "license_type": Gtk.License.GPL_3_0_ONLY,
             "comments": "Workspace manager for immutable Linux systems.\nPowered by Distrobox and Podman.",
         }
 
