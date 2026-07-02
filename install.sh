@@ -12,7 +12,6 @@ mkdir -p "$INSTALL_BIN"
 install -m 755 bin/podbx-cli "$INSTALL_BIN/podbx-cli"
 
 # Python package — install for real this time
-# Python package — install for real this time
 if command -v pipx &>/dev/null; then
     pipx install --editable . --system-site-packages --force
 else
