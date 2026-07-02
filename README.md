@@ -143,6 +143,7 @@ The script will prompt you before deleting your workspace data in ``~/Podbx_Proj
 ---
 ## Road Map
 ### To Do:
+- [ ] Implement Logging Support
 - [ ] Write Test Cases 
 - [ ] Write documentation
 - [ ] Set up CI/CD pipeline

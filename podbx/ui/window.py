@@ -70,6 +70,7 @@ class PodbxWindow(Adw.ApplicationWindow):
         menu_btn = Gtk.MenuButton(icon_name="open-menu-symbolic")
         self._header.pack_start(menu_btn)
         menu_model = Gio.Menu()
+        menu_model.append("Help", "app.help")
         menu_model.append("About Podbx", "app.about")
         menu_btn.set_menu_model(menu_model)
 

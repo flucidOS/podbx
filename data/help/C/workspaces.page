@@ -1,0 +1,24 @@
+<page xmlns="http://projectmallard.org/1.0/"
+      type="topic"
+      id="workspaces">
+
+  <info>
+    <link type="guide" xref="index#common-tasks"/>
+    <desc>Create, enter, and remove isolated project workspaces.</desc>
+  </info>
+
+  <title>Create and manage workspaces</title>
+
+  <p>Each workspace is an isolated project folder mapped into the shared
+  <code>podbx-os</code> container. Nothing you install inside a workspace
+  touches your real system.</p>
+
+  <steps>
+    <item><p>Click <gui>New Workspace</gui> and give it a name.</p></item>
+    <item><p>Click <gui>Open Terminal</gui> to drop into a container shell
+    at that workspace, or <gui>Open With</gui> to launch an IDE there.</p></item>
+    <item><p>Click the trash icon to delete a workspace directory. The
+    shared base container is never affected.</p></item>
+  </steps>
+
+</page>

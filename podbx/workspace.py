@@ -170,3 +170,4 @@ class WorkspaceManager:
             "xterm":          [terminal, "-e"] + cmd,
         }
         subprocess.Popen(launch_map.get(terminal, [terminal, "--"] + cmd))
+

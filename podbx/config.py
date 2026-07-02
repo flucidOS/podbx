@@ -29,3 +29,6 @@ TERMINAL_PREFERENCE = [
 APP_ID      = "com.flucidos.Podbx"
 APP_NAME    = "Podbx"
 APP_VERSION = "1.0.0"
+
+# Help documentation (Mallard XML, viewed via Yelp)
+HELP_DIR = os.path.join(DATA_DIR, "help", "C")

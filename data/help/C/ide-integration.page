@@ -1,0 +1,21 @@
+<page xmlns="http://projectmallard.org/1.0/"
+      type="topic"
+      id="ide-integration">
+
+  <info>
+    <link type="guide" xref="index#common-tasks"/>
+    <desc>How Podbx wires your editor's terminal into the container.</desc>
+  </info>
+
+  <title>IDE terminal integration</title>
+
+  <p>When you open a workspace with an IDE, Podbx writes
+  <file>.podbx/podbx-shell.sh</file> into the project and configures the
+  editor's integrated terminal to use it. Every terminal tab you open in
+  the IDE transparently enters the <code>podbx-os</code> container.</p>
+
+  <p>If the IDE is installed as a Flatpak, Podbx also grants it the
+  <code>org.freedesktop.Flatpak</code> permission so it can reach the host
+  container through <cmd>flatpak-spawn --host</cmd>.</p>
+
+</page>

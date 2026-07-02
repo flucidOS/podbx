@@ -1,0 +1,16 @@
+<page xmlns="http://projectmallard.org/1.0/"
+      type="guide"
+      id="index">
+
+  <info>
+    <title type="text">Podbx Help</title>
+  </info>
+
+  <title>Podbx</title>
+  <p>Workspace manager for immutable Linux systems, powered by Distrobox and Podman.</p>
+
+  <section id="common-tasks" style="2column">
+    <title>Common tasks</title>
+  </section>
+
+</page>
